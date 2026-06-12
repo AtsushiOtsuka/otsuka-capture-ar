@@ -37,14 +37,14 @@ function mat(color, opts = {}) {
 }
 
 // 頭上に出す「おーつか」名札スプライト（CanvasTexture）。常にカメラを向く。
-function makeNameSprite(text) {
+function makeNameSprite(text, accent = "rgba(40, 216, 207, 0.95)") {
   const canvas = document.createElement("canvas");
   canvas.width = 320;
   canvas.height = 128;
   const ctx = canvas.getContext("2d");
   const r = 26;
   ctx.fillStyle = "rgba(8, 18, 22, 0.86)";
-  ctx.strokeStyle = "rgba(40, 216, 207, 0.95)";
+  ctx.strokeStyle = accent;
   ctx.lineWidth = 6;
   ctx.beginPath();
   ctx.moveTo(20 + r, 20);
@@ -69,7 +69,18 @@ function makeNameSprite(text) {
   return sprite;
 }
 
-export function createOtsukaCharacter({ name = "おーつか", withLabel = true } = {}) {
+/**
+ * @param coatColor/coatShade/frameColor 偽おーつか等のバリエーション用
+ * @param labelAccent 名札の縁色
+ */
+export function createOtsukaCharacter({
+  name = "おーつか",
+  withLabel = true,
+  coatColor = COAT,
+  coatShade = COAT_SHADE,
+  frameColor = FRAME,
+  labelAccent = "rgba(40, 216, 207, 0.95)",
+} = {}) {
   const root = new THREE.Group();
   root.name = "Otsuka";
   root.visible = false;
@@ -102,7 +113,7 @@ export function createOtsukaCharacter({ name = "おーつか", withLabel = true 
   // 前面に貼るパーツは rotation.x = -0.23 で斜面に平行に寝かせる。
   const COAT_SLOPE = -0.23;
   const coatGeo = new THREE.CylinderGeometry(0.16, 0.24, 0.34, 26, 1, false);
-  add(new THREE.Mesh(coatGeo, mat(COAT, { roughness: 0.86 }))).position.y = 0.33;
+  add(new THREE.Mesh(coatGeo, mat(coatColor, { roughness: 0.86 }))).position.y = 0.33;
 
   // 黄シャツの襟元（首まわりのリング）
   const shirtGeo = new THREE.CylinderGeometry(0.1, 0.13, 0.12, 18);
@@ -123,14 +134,14 @@ export function createOtsukaCharacter({ name = "おーつか", withLabel = true 
 
   // 白衣のVラペル（襟元から胸へ向かう斜めの折り返し）
   for (const sx of [-1, 1]) {
-    const lapel = add(new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.16, 0.015), mat(COAT_SHADE)));
+    const lapel = add(new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.16, 0.015), mat(coatShade)));
     lapel.position.set(0.065 * sx, 0.43, 0.17);
     lapel.rotation.set(COAT_SLOPE, 0, -0.46 * sx);
   }
 
   // ---- 腕 ----
   const armGeo = new THREE.CapsuleGeometry(0.045, 0.16, 4, 10);
-  const armMat = mat(COAT, { roughness: 0.86 });
+  const armMat = mat(coatColor, { roughness: 0.86 });
   const arms = [];
   for (const sx of [-1, 1]) {
     const pivot = new THREE.Group();
@@ -218,7 +229,7 @@ export function createOtsukaCharacter({ name = "おーつか", withLabel = true 
   // ---- 太角メガネ（顔のカーブに沿わせる） ----
   // 各レンズ枠を rotation.y で外側へ振り、外縁がこめかみへ巻き込むように配置。
   // ブリッジは内縁同士（x≈±0.05, z≈0.23）を、つるは外縁からこめかみへ接続。
-  const frameMat = mat(FRAME, { metalness: 0.3, roughness: 0.4 });
+  const frameMat = mat(frameColor, { metalness: 0.3, roughness: 0.4 });
   function makeLensFrame(sx) {
     const g = new THREE.Group();
     const w = 0.115, h = 0.085, t = 0.02;
@@ -275,7 +286,7 @@ export function createOtsukaCharacter({ name = "おーつか", withLabel = true 
 
   // 名札
   if (withLabel) {
-    const nameSprite = makeNameSprite(name);
+    const nameSprite = makeNameSprite(name, labelAccent);
     nameSprite.position.set(0, 1.18, 0);
     body.add(nameSprite);
   }
@@ -299,9 +310,47 @@ export function createOtsukaCharacter({ name = "おーつか", withLabel = true 
 
   let facing = 0;
 
+  // ゴールデン化＝全パーツの色を金へ寄せる（元のマテリアル状態を保存して復元）
+  let isGolden = false;
+  const goldenSaved = new Map();
+  const GOLD = new THREE.Color("#ffd24a");
+  function setGolden(on) {
+    if (on === isGolden) return;
+    isGolden = on;
+    const mats = new Set();
+    meshes.forEach((m) => {
+      if (m.material?.isMeshStandardMaterial) mats.add(m.material);
+    });
+    for (const m of mats) {
+      if (on) {
+        if (!goldenSaved.has(m)) {
+          goldenSaved.set(m, {
+            color: m.color.clone(),
+            metalness: m.metalness,
+            roughness: m.roughness,
+            emissive: m.emissive.clone(),
+          });
+        }
+        m.color.lerp(GOLD, 0.78);
+        m.metalness = 0.75;
+        m.roughness = 0.38;
+        m.emissive.set("#6e5300");
+      } else {
+        const saved = goldenSaved.get(m);
+        if (saved) {
+          m.color.copy(saved.color);
+          m.metalness = saved.metalness;
+          m.roughness = saved.roughness;
+          m.emissive.copy(saved.emissive);
+        }
+      }
+    }
+  }
+
   return {
     root,
     hitProxy,
+    setGolden,
     setVisible(v) {
       root.visible = v;
     },

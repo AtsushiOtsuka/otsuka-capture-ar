@@ -21,7 +21,7 @@ const DEFAULT_IMAGE_TARGET = "./assets/targets.mind";
 
 const params = new URLSearchParams(window.location.search);
 const imageTargetSrc = params.get("target") || DEFAULT_IMAGE_TARGET;
-const durationSec = Math.max(10, parseInt(params.get("time"), 10) || 45);
+const durationSec = Math.max(10, parseInt(params.get("time"), 10) || 30);
 const isDebug = params.get("debug") === "1";
 
 let mindarThree = null;
@@ -55,9 +55,21 @@ function buildGame(camera, container) {
     onTime: (t) => ui.setTime(t),
     onFinish: (score) => ui.showResult(score),
     onCapture: (pos) => {
-      confetti.burst(pos);
-      navigator.vibrate?.(40);
+      if (pos.gold) {
+        confetti.burstGold(pos);
+        navigator.vibrate?.([40, 50, 40, 50, 60]);
+      } else {
+        confetti.burst(pos);
+        navigator.vibrate?.(40);
+      }
     },
+    onPenalty: (pos) => {
+      confetti.burstPenalty(pos);
+      ui.flashPenalty();
+      navigator.vibrate?.(160);
+    },
+    onGolden: (on) => ui.setGoldBanner(on),
+    onSparkle: (pos) => confetti.sparkle(pos),
   });
 
   // 画面タップ→捕獲判定（UIボタンは pointer-events で除外されている）
@@ -166,13 +178,13 @@ function startDebug() {
   debugCamera.lookAt(0, 0.2, 0);
 
   makeLights().forEach((l) => debugScene.add(l));
+  // 16:9横長マーカーに合わせた床（移動範囲の目安）
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.6, 1.6),
+    new THREE.PlaneGeometry(2.0, 1.1),
     new THREE.MeshStandardMaterial({ color: "#1b3a42", roughness: 1 }),
   );
   ground.rotation.x = -Math.PI / 2;
   debugScene.add(ground);
-  debugScene.add(new THREE.GridHelper(1.6, 8, "#2e5a64", "#234750"));
 
   buildGame(debugCamera, container);
   debugScene.add(game.root);

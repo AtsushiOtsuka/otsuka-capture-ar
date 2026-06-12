@@ -48,6 +48,8 @@ export function createUIController({ onStart, onStop, onRetry }) {
     trackingHint: document.querySelector("#tracking-hint"),
     scoreValue: document.querySelector("#score-value"),
     timeValue: document.querySelector("#time-value"),
+    goldBanner: document.querySelector("#gold-banner"),
+    penaltyFlash: document.querySelector("#penalty-flash"),
     result: document.querySelector("#result"),
     resultScore: document.querySelector("#result-score"),
     resultComment: document.querySelector("#result-comment"),
@@ -77,6 +79,8 @@ export function createUIController({ onStart, onStop, onRetry }) {
     elements.startScreen.hidden = true;
     elements.fallback.hidden = true;
     elements.runtimeUI.hidden = false;
+    elements.goldBanner.hidden = true;
+    elements.penaltyFlash.hidden = true;
     hideResult();
   }
 
@@ -115,6 +119,26 @@ export function createUIController({ onStart, onStop, onRetry }) {
     elements.timeValue.classList.toggle("is-warning", seconds <= 10);
   }
 
+  // ゴールデンおーつか出現中のバナー表示
+  function setGoldBanner(on) {
+    elements.goldBanner.hidden = !on;
+  }
+
+  // 偽おーつか誤タップの「−1」フラッシュ（CSSアニメを再生し直す）
+  let penaltyTimer = null;
+  function flashPenalty() {
+    const el = elements.penaltyFlash;
+    el.hidden = false;
+    el.classList.remove("is-flashing");
+    void el.offsetWidth; // リフロー強制＝アニメ再スタート
+    el.classList.add("is-flashing");
+    clearTimeout(penaltyTimer);
+    penaltyTimer = setTimeout(() => {
+      el.hidden = true;
+      el.classList.remove("is-flashing");
+    }, 900);
+  }
+
   function showResult(score) {
     elements.resultScore.textContent = String(score);
     elements.resultComment.textContent = rankComment(score);
@@ -146,6 +170,8 @@ export function createUIController({ onStart, onStop, onRetry }) {
     setTracking,
     setScore,
     setTime,
+    setGoldBanner,
+    flashPenalty,
     showResult,
     hideResult,
   };

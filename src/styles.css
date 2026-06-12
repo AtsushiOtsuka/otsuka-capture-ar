@@ -289,6 +289,77 @@ h1 {
   visibility: hidden;
 }
 
+/* ゴールデンおーつか出現中のバナー */
+.gold-banner {
+  position: fixed;
+  top: max(86px, calc(env(safe-area-inset-top) + 74px));
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 18px;
+  border: 1px solid rgba(255, 210, 74, 0.65);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(64, 48, 6, 0.88), rgba(38, 28, 4, 0.88));
+  color: #ffd24a;
+  font-weight: 900;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  animation: gold-pulse 0.7s ease-in-out infinite alternate;
+}
+
+.gold-banner[hidden] {
+  display: none;
+}
+
+@keyframes gold-pulse {
+  from {
+    box-shadow: 0 0 10px rgba(255, 210, 74, 0.25);
+  }
+  to {
+    box-shadow: 0 0 26px rgba(255, 210, 74, 0.6);
+  }
+}
+
+/* 偽おーつか誤タップの「−1」フラッシュ */
+.penalty-flash {
+  position: fixed;
+  top: 42%;
+  left: 50%;
+  margin: 0;
+  color: var(--danger);
+  font-size: clamp(1.6rem, 8vw, 2.6rem);
+  font-weight: 900;
+  white-space: nowrap;
+  text-shadow: 0 2px 18px rgba(255, 60, 60, 0.55);
+  transform: translate(-50%, -50%);
+}
+
+.penalty-flash[hidden] {
+  display: none;
+}
+
+.penalty-flash.is-flashing {
+  animation: penalty-pop 0.9s ease-out forwards;
+}
+
+@keyframes penalty-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  32% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -72%) scale(1);
+  }
+}
+
 /* リザルト */
 .result-panel {
   pointer-events: auto;

@@ -27,7 +27,7 @@
   .lead { font-size: 14px; color: #51606f; margin-bottom: 22px; }
   .marker-img {
     width: 100%;
-    max-width: 480px;
+    max-width: 640px;
     border: 1px solid #d5dde6;
     display: block;
     margin: 0 auto 28px;
@@ -73,9 +73,12 @@
 <body>
   <div class="sheet">
     <h1>おーつかをつかまえろ！ マーカーシート</h1>
-    <p class="lead">このページを印刷するか、別の画面に表示してマーカーとして使ってください。</p>
+    <p class="lead">
+      この画像がARマーカーです（16:9・スライド全面用）。スライドに全面で貼り付けるか、
+      このページを印刷・画面表示してマーカーとして使ってください。
+    </p>
 
-    <img class="marker-img" src="./assets/marker.png" alt="ARマーカー：おーつかをつかまえろ！" />
+    <img class="marker-img" src="./assets/marker-wide.png" alt="ARマーカー：おーつかをつかまえろ！（16:9スライド用）" />
 
     <div class="play-row">
       <img class="qr-img" src="./assets/qr.png" alt="ゲームページへのQRコード" />
@@ -91,7 +94,7 @@
       </div>
     </div>
 
-    <p class="print-note">マーカーは10cm角以上の大きさで、明るい場所で使うと認識しやすくなります。</p>
+    <p class="print-note">マーカーは横15cm以上の大きさで、明るい場所で使うと認識しやすくなります。スライドに貼る場合は全面表示がおすすめです。</p>
     <button class="print-button" type="button" onclick="window.print()">このページを印刷する</button>
   </div>
 </body>

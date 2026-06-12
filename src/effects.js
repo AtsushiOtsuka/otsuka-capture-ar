@@ -70,11 +70,16 @@ export function createConfetti({ poolSize = 700 } = {}) {
 
   const GRAVITY = 0.95;
 
-  /** 1発打ち上げる。origin = {x,y,z}（捕獲位置）。 */
-  function burst(origin = { x: 0, y: 0.6, z: 0 }) {
-    const baseCol = palette[(Math.random() * palette.length) | 0];
-    const n = 80 + ((Math.random() * 50) | 0);
-    const speed = 0.8 + Math.random() * 0.5;
+  /**
+   * 1発打ち上げる。origin = {x,y,z}（捕獲位置）。
+   * opts.colors  使用色（[r,g,b]の配列）。省略時は既定パレットからランダム1色
+   * opts.count   粒子数 / opts.speedMul 初速倍率 / opts.sizeMul 粒サイズ倍率
+   */
+  function burst(origin = { x: 0, y: 0.6, z: 0 }, opts = {}) {
+    const pool = opts.colors ?? [palette[(Math.random() * palette.length) | 0]];
+    const n = opts.count ?? 80 + ((Math.random() * 50) | 0);
+    const speed = (0.8 + Math.random() * 0.5) * (opts.speedMul ?? 1);
+    const sizeMul = opts.sizeMul ?? 1;
     for (let k = 0; k < n; k++) {
       const i = cursor;
       cursor = (cursor + 1) % poolSize;
@@ -87,11 +92,11 @@ export function createConfetti({ poolSize = 700 } = {}) {
       positions[i * 3 + 0] = origin.x;
       positions[i * 3 + 1] = origin.y;
       positions[i * 3 + 2] = origin.z;
-      const c = Math.random() < 0.18 ? [1, 1, 1] : baseCol;
+      const c = Math.random() < 0.18 ? [1, 1, 1] : pool[(Math.random() * pool.length) | 0];
       colors[i * 3 + 0] = c[0];
       colors[i * 3 + 1] = c[1];
       colors[i * 3 + 2] = c[2];
-      sizes[i] = 7 + Math.random() * 9;
+      sizes[i] = (7 + Math.random() * 9) * sizeMul;
       age[i] = 0;
       life[i] = 0.9 + Math.random() * 0.7;
       active[i] = 1;
@@ -125,9 +130,41 @@ export function createConfetti({ poolSize = 700 } = {}) {
     geometry.attributes.aAlpha.needsUpdate = true;
   }
 
+  /** ゴールデン捕獲＝金＋白の大型花火 */
+  function burstGold(origin) {
+    burst(origin, {
+      colors: [[1.0, 0.85, 0.3], [1.0, 0.95, 0.55], [1.0, 0.7, 0.15]],
+      count: 170,
+      speedMul: 1.25,
+      sizeMul: 1.2,
+    });
+  }
+
+  /** 偽おーつか誤タップ＝暗赤色の小爆発（お仕置き感） */
+  function burstPenalty(origin) {
+    burst(origin, {
+      colors: [[0.75, 0.12, 0.12], [0.45, 0.08, 0.3], [0.3, 0.3, 0.32]],
+      count: 55,
+      speedMul: 0.65,
+    });
+  }
+
+  /** ゴールデン中の控えめキラキラ（移動中に少量ずつ） */
+  function sparkle(origin) {
+    burst(origin, {
+      colors: [[1.0, 0.88, 0.4]],
+      count: 10,
+      speedMul: 0.3,
+      sizeMul: 0.8,
+    });
+  }
+
   return {
     object3D: points,
     burst,
+    burstGold,
+    burstPenalty,
+    sparkle,
     setVisible(v) {
       points.visible = v;
     },

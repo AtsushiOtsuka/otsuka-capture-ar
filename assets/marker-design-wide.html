@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+    background: #ffffff;
+  }
+  .slide {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    background: #fdfaf2;
+    overflow: hidden;
+    border: 24px solid #1d2a3a;
+  }
+
+  /* 非対称コーナー（向き判定の特徴点） */
+  .corner { position: absolute; }
+  .corner.tl { top: 44px; left: 44px; width: 150px; height: 150px; background: #e94f37; clip-path: polygon(0 0, 100% 0, 0 100%); }
+  .corner.tr { top: 48px; right: 48px; width: 120px; height: 120px; background: #1b998b; border-radius: 50%; }
+  .corner.bl { bottom: 110px; left: 48px; width: 130px; height: 130px; background: #f4b942; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .corner.br { bottom: 110px; right: 44px; width: 110px; height: 160px; background: #3066be; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+
+  /* 左カラム：タイトル＋遊び方＋QR */
+  .left {
+    position: absolute;
+    top: 90px;
+    left: 130px;
+    width: 880px;
+  }
+  .title {
+    font-size: 104px;
+    font-weight: 900;
+    color: #1d2a3a;
+    line-height: 1.18;
+    letter-spacing: 2px;
+  }
+  .title .accent { color: #e94f37; }
+  .subtitle {
+    margin-top: 14px;
+    font-size: 34px;
+    font-weight: 700;
+    color: #1b998b;
+    letter-spacing: 10px;
+  }
+
+  .steps {
+    margin-top: 52px;
+    list-style: none;
+  }
+  .steps li {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-bottom: 26px;
+    font-size: 36px;
+    font-weight: 800;
+    color: #1d2a3a;
+  }
+  .step-num {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    font-weight: 900;
+    color: #fff;
+  }
+  .steps li:nth-child(1) .step-num { background: #e94f37; }
+  .steps li:nth-child(2) .step-num { background: #1b998b; }
+  .steps li:nth-child(3) .step-num { background: #3066be; }
+
+  .qr-row {
+    margin-top: 48px;
+    display: flex;
+    align-items: center;
+    gap: 36px;
+  }
+  .qr-box {
+    flex: none;
+    padding: 16px;
+    background: #ffffff;
+    border: 8px solid #1d2a3a;
+    border-radius: 18px;
+    box-shadow: 12px 12px 0 #1b998b;
+  }
+  .qr-box img { width: 230px; height: 230px; display: block; }
+  .qr-note {
+    font-size: 32px;
+    font-weight: 900;
+    color: #1d2a3a;
+    line-height: 1.6;
+  }
+  .qr-note .url {
+    display: block;
+    margin-top: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #3066be;
+  }
+
+  /* 右カラム：キャラ */
+  .char-frame {
+    position: absolute;
+    top: 130px;
+    right: 150px;
+    width: 600px;
+    height: 660px;
+    border-radius: 40px;
+    overflow: hidden;
+    border: 14px solid #1d2a3a;
+    box-shadow: 22px 22px 0 #f4b942;
+  }
+  .char-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .char-caption {
+    position: absolute;
+    top: 830px;
+    right: 150px;
+    width: 600px;
+    text-align: center;
+    font-size: 30px;
+    font-weight: 900;
+    color: #1d2a3a;
+  }
+  .char-caption .nise { color: #d23b2f; }
+
+  /* 周辺の特徴点散布（非反復・非対称） */
+  .deco { position: absolute; font-weight: 900; }
+  .flask { left: 1060px; top: 150px; font-size: 92px; transform: rotate(-12deg); }
+  .atom { left: 1040px; top: 540px; font-size: 80px; transform: rotate(18deg); }
+  .paw1 { left: 60px; top: 460px; font-size: 64px; transform: rotate(-22deg); }
+  .paw2 { left: 1085px; top: 330px; font-size: 58px; transform: rotate(28deg); }
+  .star1 { left: 1050px; top: 730px; font-size: 72px; transform: rotate(14deg); }
+  .bolt { right: 70px; top: 320px; font-size: 78px; transform: rotate(-8deg); }
+  .net { left: 70px; top: 700px; font-size: 80px; transform: rotate(32deg); }
+  .sparkle { right: 80px; top: 580px; font-size: 56px; }
+
+  .stripe {
+    position: absolute;
+    bottom: 78px;
+    left: 0;
+    width: 100%;
+    height: 20px;
+    background: repeating-linear-gradient(
+      90deg,
+      #1d2a3a 0 110px,
+      #e94f37 110px 200px,
+      #fdfaf2 200px 270px,
+      #1b998b 270px 390px,
+      #f4b942 390px 450px
+    );
+  }
+  .footer {
+    position: absolute;
+    bottom: 26px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 30px;
+    font-weight: 800;
+    color: #1d2a3a;
+    letter-spacing: 3px;
+    white-space: nowrap;
+  }
+  .footer span { color: #3066be; }
+</style>
+</head>
+<body>
+  <div class="slide">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="left">
+      <h1 class="title">おーつかを<br /><span class="accent">つかまえろ！</span></h1>
+      <p class="subtitle">WEBAR CAPTURE GAME</p>
+
+      <ol class="steps">
+        <li><span class="step-num">1</span>スマホでQRコードを読み取る</li>
+        <li><span class="step-num">2</span>カメラをこのスライドに向ける</li>
+        <li><span class="step-num">3</span>逃げる「おーつか」をタップ！</li>
+      </ol>
+
+      <div class="qr-row">
+        <div class="qr-box"><img src="./qr.png" alt="ゲームページQRコード" /></div>
+        <p class="qr-note">
+          QRを読み取って<br />ゲームスタート！
+          <span class="url">atsushiotsuka.github.io/otsuka-capture-ar</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="char-frame">
+      <img src="./_char_front.png" alt="おーつか" />
+    </div>
+    <p class="char-caption">金色は+3点！ <span class="nise">黒い「にせつか」を押すと−1点…</span></p>
+
+    <div class="deco flask">🧪</div>
+    <div class="deco atom">⚛️</div>
+    <div class="deco paw1">🐾</div>
+    <div class="deco paw2">🐾</div>
+    <div class="deco star1">✨</div>
+    <div class="deco bolt">⚡</div>
+    <div class="deco net">🥅</div>
+    <div class="deco sparkle">💫</div>
+
+    <div class="stripe"></div>
+    <p class="footer">30秒間でなんびき つかまえられるかな？ <span>▶ OTSUKA LAB</span></p>
+  </div>
+</body>
+</html>
