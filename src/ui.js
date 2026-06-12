@@ -50,6 +50,8 @@ export function createUIController({ onStart, onStop, onRetry }) {
     timeValue: document.querySelector("#time-value"),
     goldBanner: document.querySelector("#gold-banner"),
     penaltyFlash: document.querySelector("#penalty-flash"),
+    comboFlash: document.querySelector("#combo-flash"),
+    missFlash: document.querySelector("#miss-flash"),
     result: document.querySelector("#result"),
     resultScore: document.querySelector("#result-score"),
     resultComment: document.querySelector("#result-comment"),
@@ -81,6 +83,8 @@ export function createUIController({ onStart, onStop, onRetry }) {
     elements.runtimeUI.hidden = false;
     elements.goldBanner.hidden = true;
     elements.penaltyFlash.hidden = true;
+    elements.comboFlash.hidden = true;
+    elements.missFlash.hidden = true;
     hideResult();
   }
 
@@ -124,19 +128,34 @@ export function createUIController({ onStart, onStop, onRetry }) {
     elements.goldBanner.hidden = !on;
   }
 
-  // 偽おーつか誤タップの「−1」フラッシュ（CSSアニメを再生し直す）
-  let penaltyTimer = null;
-  function flashPenalty() {
-    const el = elements.penaltyFlash;
+  // ポップ系フラッシュの共通処理（CSSアニメを再生し直す）
+  const flashTimers = new Map();
+  function popFlash(el, durationMs) {
     el.hidden = false;
     el.classList.remove("is-flashing");
     void el.offsetWidth; // リフロー強制＝アニメ再スタート
     el.classList.add("is-flashing");
-    clearTimeout(penaltyTimer);
-    penaltyTimer = setTimeout(() => {
+    clearTimeout(flashTimers.get(el));
+    flashTimers.set(el, setTimeout(() => {
       el.hidden = true;
       el.classList.remove("is-flashing");
-    }, 900);
+    }, durationMs));
+  }
+
+  // 偽おーつか誤タップの「−1」フラッシュ
+  function flashPenalty() {
+    popFlash(elements.penaltyFlash, 900);
+  }
+
+  // 連続捕獲コンボの「n COMBO! +n」フラッシュ（2コンボ以上で表示）
+  function flashCombo(combo, gain) {
+    elements.comboFlash.textContent = `${combo} COMBO! +${gain}`;
+    popFlash(elements.comboFlash, 800);
+  }
+
+  // 空振りお手つきの「ミス…」表示
+  function flashMiss() {
+    popFlash(elements.missFlash, 500);
   }
 
   function showResult(score) {
@@ -172,6 +191,8 @@ export function createUIController({ onStart, onStop, onRetry }) {
     setTime,
     setGoldBanner,
     flashPenalty,
+    flashCombo,
+    flashMiss,
     showResult,
     hideResult,
   };

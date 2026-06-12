@@ -19,6 +19,11 @@ import { createUIController } from "./ui.js";
 
 const DEFAULT_IMAGE_TARGET = "./assets/targets.mind";
 
+// ゴールデンおーつか捕獲時のボイス「ウルトラソウル！」
+// タップ（ユーザー操作）起点で再生されるためモバイルの自動再生制限にかからない。
+const ultraSoulVoice = new Audio("./assets/ultrasoul.m4a");
+ultraSoulVoice.preload = "auto";
+
 const params = new URLSearchParams(window.location.search);
 const imageTargetSrc = params.get("target") || DEFAULT_IMAGE_TARGET;
 const durationSec = Math.max(10, parseInt(params.get("time"), 10) || 30);
@@ -57,11 +62,14 @@ function buildGame(camera, container) {
     onCapture: (pos) => {
       if (pos.gold) {
         confetti.burstGold(pos);
+        ultraSoulVoice.currentTime = 0;
+        ultraSoulVoice.play().catch(() => {}); // 再生不可環境では無音のまま続行
         navigator.vibrate?.([40, 50, 40, 50, 60]);
       } else {
         confetti.burst(pos);
         navigator.vibrate?.(40);
       }
+      if (pos.combo >= 2) ui.flashCombo(pos.combo, pos.gain);
     },
     onPenalty: (pos) => {
       confetti.burstPenalty(pos);
@@ -70,6 +78,10 @@ function buildGame(camera, container) {
     },
     onGolden: (on) => ui.setGoldBanner(on),
     onSparkle: (pos) => confetti.sparkle(pos),
+    onMiss: () => {
+      ui.flashMiss();
+      navigator.vibrate?.(20);
+    },
   });
 
   // 画面タップ→捕獲判定（UIボタンは pointer-events で除外されている）
@@ -216,6 +228,20 @@ function startDebug() {
 
   isStarted = true;
   window.__game = game; // デバッグ用フック
+  // デバッグ用: 本物キャラの画面座標に正確にタップを撃つ（コンボ検証用）
+  window.__tapChar = () => {
+    const charRoot = game.root.children[0];
+    const v = new THREE.Vector3();
+    charRoot.getWorldPosition(v);
+    v.y += 0.3;
+    v.project(debugCamera);
+    const rect = container.getBoundingClientRect();
+    container.dispatchEvent(new PointerEvent("pointerdown", {
+      clientX: rect.left + ((v.x + 1) / 2) * rect.width,
+      clientY: rect.top + ((1 - (v.y + 1) / 2) * rect.height),
+      bubbles: true,
+    }));
+  };
 }
 
 // ---------------- 共通 ----------------

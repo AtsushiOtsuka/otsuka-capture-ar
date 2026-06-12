@@ -368,6 +368,65 @@ h1 {
   }
 }
 
+/* 連続捕獲コンボの「n COMBO! +n」フラッシュ */
+.combo-flash {
+  position: fixed;
+  top: 32%;
+  left: 50%;
+  margin: 0;
+  color: var(--amber);
+  font-size: clamp(1.4rem, 7vw, 2.2rem);
+  font-weight: 900;
+  white-space: nowrap;
+  text-shadow: 0 2px 16px rgba(255, 180, 59, 0.6);
+  transform: translate(-50%, -50%);
+}
+
+.combo-flash[hidden] {
+  display: none;
+}
+
+.combo-flash.is-flashing {
+  animation: penalty-pop 0.8s ease-out forwards;
+}
+
+/* 空振りお手つきの「ミス…」表示 */
+.miss-flash {
+  position: fixed;
+  top: 52%;
+  left: 50%;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 4.6vw, 1.4rem);
+  font-weight: 900;
+  white-space: nowrap;
+  opacity: 0.85;
+  transform: translate(-50%, -50%);
+}
+
+.miss-flash[hidden] {
+  display: none;
+}
+
+.miss-flash.is-flashing {
+  animation: miss-fade 0.5s ease-out forwards;
+}
+
+@keyframes miss-fade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  25% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -38%) scale(1);
+  }
+}
+
 /* リザルト */
 .result-panel {
   pointer-events: auto;

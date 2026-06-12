@@ -35,7 +35,12 @@ const GOLD_FIRST_SEC = 7;    // 初回ゴールデンまでの秒数
 const GOLD_GAP_MIN = 7;      // 2回目以降の間隔（最小）
 const GOLD_GAP_MAX = 12;     // 同（最大）
 const GOLD_DURATION = 3.2;   // 金色でいる時間
-const GOLD_SCORE = 3;        // 金色捕獲の得点（金色中は常にMAX_SPEEDで爆走）
+const GOLD_BONUS = 2;        // 金色捕獲のボーナス（コンボ点に加算＝最低+3点）
+
+// コンボ＆お手つき（画面中央連打の対策。狙って当てるほど伸びる）
+const MISS_LOCK_SEC = 0.5;    // 空振り後のタップ不能時間
+const COMBO_WINDOW_SEC = 3.0; // この秒数以内に次を捕まえるとコンボ継続
+const COMBO_MAX = 3;          // コンボ点の上限（+1→+2→+3）
 const GOLD_SPARKLE_SEC = 0.4; // 金色中のキラキラ間隔
 
 // 偽おーつか（デコイ）
@@ -53,7 +58,7 @@ const DECOY_COUNT_FINAL = 3;     // 終盤の同時最大数（通常は1体）
 const DECOY_GAP_FINAL_MIN = 0.8; // 終盤の再出現間隔（タップで消してもすぐ戻る）
 const DECOY_GAP_FINAL_MAX = 1.8;
 
-export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapture, onPenalty, onGolden, onSparkle } = {}) {
+export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapture, onPenalty, onGolden, onSparkle, onMiss } = {}) {
   const character = createOtsukaCharacter({ name: "おーつか" });
   character.root.scale.setScalar(CHAR_SCALE); // 当たり判定球(hitProxy)も一緒に縮む
 
@@ -106,6 +111,11 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
   // デコイ稼働数（終盤に増える）。増えた瞬間の出現タイミング調整に使う
   let lastAllowedDecoys = 1;
 
+  // コンボ＆お手つき状態
+  let combo = 0;          // 連続捕獲数（ミス・誤タップ・時間切れでリセット）
+  let sinceCatch = Infinity; // 最後の捕獲からの経過秒
+  let missLock = 0;       // 空振り後のタップ不能残り時間
+
   function randomPoint() {
     return new THREE.Vector3(
       (Math.random() * 2 - 1) * FIELD_X,
@@ -151,6 +161,9 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     goldTimer = 0;
     sparkleClock = 0;
     setGolden(false);
+    combo = 0;
+    sinceCatch = Infinity;
+    missLock = 0;
     lastAllowedDecoys = 1;
     decoys.forEach((d, i) => {
       d.active = false;
@@ -187,13 +200,16 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
   /**
    * 画面タップ→捕獲判定。
    * 本物を先に判定（重なっていた場合にペナルティ優先で理不尽にならないように）。
+   * どこにも当たらなければ「お手つき」＝短時間タップ不能＋コンボリセット（連打対策）。
    * @param clientX/clientY ポインタ座標（CSSピクセル）
    * @param rect ARコンテナの DOMRect
    * @param camera three.js カメラ
-   * @returns true=捕獲成功（デコイ誤タップは false）
+   * @returns true=捕獲成功（デコイ誤タップ・お手つきは false）
    */
   function tryCapture(clientX, clientY, rect, camera) {
     if (phase !== "playing") return false;
+    if (missLock > 0) return false; // お手つき硬直中はタップ無効
+    if (!trackVisible) return false; // マーカーロスト中はお手つきも取らない
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
@@ -204,7 +220,10 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
       const hits = raycaster.intersectObject(character.hitProxy, true);
       if (hits.length > 0) {
         const wasGolden = goldTimer > 0;
-        score += wasGolden ? GOLD_SCORE : 1;
+        combo = sinceCatch <= COMBO_WINDOW_SEC && combo > 0 ? combo + 1 : 1;
+        sinceCatch = 0;
+        const gain = Math.min(combo, COMBO_MAX) + (wasGolden ? GOLD_BONUS : 0);
+        score += gain;
         speed = Math.min(BASE_SPEED + score * SPEED_PER_CATCH, MAX_SPEED); // 捕まえるほどどんどん速く
         stunTimer = 0.35;                       // 一瞬消えてリスポーン
         warpIn = randWarpInterval();            // 捕獲リスポーン直後の連続ワープを防ぐ
@@ -214,17 +233,19 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
           setGolden(false);
         }
         onScore?.(score);
-        onCapture?.({ x: pos.x, y: 0.62, z: pos.z, gold: wasGolden }); // エフェクト用に捕獲位置を通知
+        // エフェクト・コンボ表示用に捕獲位置と内訳を通知
+        onCapture?.({ x: pos.x, y: 0.62, z: pos.z, gold: wasGolden, combo, gain });
         return true;
       }
     }
 
-    // 偽おーつかの判定＝誤タップペナルティ
+    // 偽おーつかの判定＝誤タップペナルティ（コンボも没収）
     for (const d of decoys) {
       if (!d.active || !d.char.root.visible) continue;
       const hits = raycaster.intersectObject(d.char.hitProxy, true);
       if (hits.length > 0) {
         score = Math.max(0, score - DECOY_PENALTY);
+        combo = 0;
         d.active = false;
         d.char.setVisible(false);
         d.timer = inFinalPhase()
@@ -236,6 +257,10 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
       }
     }
 
+    // お手つき＝空振り。短時間タップ不能＋コンボリセット
+    missLock = MISS_LOCK_SEC;
+    combo = 0;
+    onMiss?.();
     return false;
   }
 
@@ -374,6 +399,10 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
       return;
     }
 
+    // コンボ窓・お手つき硬直の進行
+    sinceCatch += dt;
+    if (missLock > 0) missLock -= dt;
+
     updateReal(dt);
     updateDecoys(dt);
   }
@@ -393,6 +422,8 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
       decoyCount: decoys.filter((d) => d.active).length,
       decoyVisible: decoys.some((d) => d.char.root.visible),
       finalPhase: inFinalPhase(),
+      combo,
+      missLock,
       speed,
       timeLeft,
     }),
