@@ -15,10 +15,13 @@ import { createOtsukaCharacter } from "./character.js";
 
 const FIELD = 0.62;       // 移動範囲（±）
 const HOP_PERIOD = 0.42;  // 1ジャンプの周期（秒）
-const CHAR_SCALE = 0.7;   // キャラの大きさ（マーカー比。小さめ＝難しく可愛い）
+const CHAR_SCALE = 0.55;  // キャラの大きさ（マーカー比。小さめ＝難しく可愛い）
 const BASE_SPEED = 0.6;   // 初速（マーカー単位/秒）
 const SPEED_PER_CATCH = 0.09; // 1捕獲ごとの加速
 const MAX_SPEED = 2.0;    // 速度上限
+const WARP_MIN_SEC = 2.5; // ワープ間隔（最小）
+const WARP_MAX_SEC = 5.5; // ワープ間隔（最大）
+const WARP_VANISH_SEC = 0.28; // ワープで姿を消している時間
 
 export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapture } = {}) {
   const character = createOtsukaCharacter({ name: "おーつか" });
@@ -38,7 +41,8 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
   let hopClock = 0;     // ジャンプ位相用
   let pos = new THREE.Vector3(0, 0, 0);
   let target = randomPoint();
-  let stunTimer = 0;    // 捕獲直後の一瞬の硬直＝リスポーン演出
+  let stunTimer = 0;    // 捕獲/ワープで姿を消している時間（明けたら別位置に出現）
+  let warpIn = randWarpInterval(); // 次の自発ワープまでの秒数
   let lastTimeBroadcast = -1;
 
   function randomPoint() {
@@ -49,12 +53,17 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     );
   }
 
+  function randWarpInterval() {
+    return WARP_MIN_SEC + Math.random() * (WARP_MAX_SEC - WARP_MIN_SEC);
+  }
+
   function start() {
     score = 0;
     timeLeft = durationSec;
     speed = BASE_SPEED;
     phase = "playing";
     stunTimer = 0;
+    warpIn = randWarpInterval();
     pos.copy(randomPoint());
     target = randomPoint();
     character.root.position.copy(pos);
@@ -90,7 +99,9 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
    * @returns true=捕獲成功
    */
   function tryCapture(clientX, clientY, rect, camera) {
-    if (phase !== "playing" || stunTimer > 0) return false;
+    // Raycasterは非表示メッシュにも当たるため、キャラ非表示中
+    // （マーカーロスト中・ワープ消滅中）は明示的に弾く＝誤加点防止。
+    if (phase !== "playing" || stunTimer > 0 || !character.root.visible) return false;
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
@@ -101,6 +112,7 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     score += 1;
     speed = Math.min(BASE_SPEED + score * SPEED_PER_CATCH, MAX_SPEED); // 捕まえるほどどんどん速く
     stunTimer = 0.35;                       // 一瞬消えてリスポーン
+    warpIn = randWarpInterval();            // 捕獲リスポーン直後の連続ワープを防ぐ
     onScore?.(score);
     onCapture?.({ x: pos.x, y: 0.62, z: pos.z }); // エフェクト用に捕獲位置を通知
     return true;
@@ -127,6 +139,14 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
         character.root.position.copy(pos);
         character.setVisible(true);
       }
+      return;
+    }
+
+    // 自発ワープ＝時々ふっと消えて別の場所に出現（捕獲と同じ消滅演出を使う）
+    warpIn -= dt;
+    if (warpIn <= 0) {
+      stunTimer = WARP_VANISH_SEC;
+      warpIn = randWarpInterval();
       return;
     }
 
