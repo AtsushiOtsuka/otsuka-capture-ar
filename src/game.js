@@ -47,23 +47,40 @@ const DECOY_GAP_MAX = 6.0;    // 同（最大）
 const DECOY_SPEED_MUL = 0.9;  // 本物よりわずかに遅い（見分けのヒント）
 const DECOY_PENALTY = 1;      // 誤タップの減点
 
+// 終盤ラッシュ＝残りFINAL_PHASE_SEC秒からにせつかが増殖して大混乱
+const FINAL_PHASE_SEC = 10;      // 残りこの秒数から終盤ラッシュ
+const DECOY_COUNT_FINAL = 3;     // 終盤の同時最大数（通常は1体）
+const DECOY_GAP_FINAL_MIN = 0.8; // 終盤の再出現間隔（タップで消してもすぐ戻る）
+const DECOY_GAP_FINAL_MAX = 1.8;
+
 export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapture, onPenalty, onGolden, onSparkle } = {}) {
   const character = createOtsukaCharacter({ name: "おーつか" });
   character.root.scale.setScalar(CHAR_SCALE); // 当たり判定球(hitProxy)も一緒に縮む
 
-  // 偽おーつか: 黒白衣＋赤眼鏡＋赤枠名札「にせつか」
-  const decoy = createOtsukaCharacter({
-    name: "にせつか",
-    coatColor: "#2e3138",
-    coatShade: "#1f2228",
-    frameColor: "#d23b2f",
-    labelAccent: "rgba(230, 80, 70, 0.95)",
+  // 偽おーつか: 黒白衣＋赤眼鏡＋赤枠名札「にせつか」。
+  // 終盤ラッシュ用に最大数ぶん事前生成しておく（通常は1体だけ稼働）。
+  const decoys = Array.from({ length: DECOY_COUNT_FINAL }, () => {
+    const char = createOtsukaCharacter({
+      name: "にせつか",
+      coatColor: "#2e3138",
+      coatShade: "#1f2228",
+      frameColor: "#d23b2f",
+      labelAccent: "rgba(230, 80, 70, 0.95)",
+    });
+    char.root.scale.setScalar(CHAR_SCALE);
+    return {
+      char,
+      active: false,
+      timer: 0,                      // active中=残り滞在時間 / 非active中=次の出現まで
+      pos: new THREE.Vector3(),
+      target: new THREE.Vector3(),
+      hopClock: 0,
+    };
   });
-  decoy.root.scale.setScalar(CHAR_SCALE);
 
   const root = new THREE.Group();
   root.add(character.root);
-  root.add(decoy.root);
+  decoys.forEach((d) => root.add(d.char.root));
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -86,12 +103,8 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
   let goldTimer = 0;           // 金色の残り時間（>0なら金色中）
   let sparkleClock = 0;
 
-  // デコイ状態
-  let decoyActive = false;
-  let decoyTimer = DECOY_FIRST_SEC; // active中=残り出現時間 / 非active中=次の出現まで
-  let decoyPos = new THREE.Vector3();
-  let decoyTarget = randomPoint();
-  let decoyHopClock = 0;
+  // デコイ稼働数（終盤に増える）。増えた瞬間の出現タイミング調整に使う
+  let lastAllowedDecoys = 1;
 
   function randomPoint() {
     return new THREE.Vector3(
@@ -138,9 +151,12 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     goldTimer = 0;
     sparkleClock = 0;
     setGolden(false);
-    decoyActive = false;
-    decoyTimer = DECOY_FIRST_SEC;
-    decoy.setVisible(false);
+    lastAllowedDecoys = 1;
+    decoys.forEach((d, i) => {
+      d.active = false;
+      d.timer = i === 0 ? DECOY_FIRST_SEC : Infinity; // 2体目以降は終盤ラッシュで起動
+      d.char.setVisible(false);
+    });
     onScore?.(score);
     broadcastTime(true);
   }
@@ -149,7 +165,7 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     phase = "idle";
     setGolden(false);
     character.setVisible(false);
-    decoy.setVisible(false);
+    decoys.forEach((d) => d.char.setVisible(false));
   }
 
   function broadcastTime(force = false) {
@@ -164,7 +180,7 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     phase = "finished";
     setGolden(false);
     character.setVisible(false);
-    decoy.setVisible(false);
+    decoys.forEach((d) => d.char.setVisible(false));
     onFinish?.(score);
   }
 
@@ -204,20 +220,27 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     }
 
     // 偽おーつかの判定＝誤タップペナルティ
-    if (decoyActive && decoy.root.visible) {
-      const hits = raycaster.intersectObject(decoy.hitProxy, true);
+    for (const d of decoys) {
+      if (!d.active || !d.char.root.visible) continue;
+      const hits = raycaster.intersectObject(d.char.hitProxy, true);
       if (hits.length > 0) {
         score = Math.max(0, score - DECOY_PENALTY);
-        decoyActive = false;
-        decoy.setVisible(false);
-        decoyTimer = randRange(DECOY_GAP_MIN, DECOY_GAP_MAX); // 消えて次の出現待ち
+        d.active = false;
+        d.char.setVisible(false);
+        d.timer = inFinalPhase()
+          ? randRange(DECOY_GAP_FINAL_MIN, DECOY_GAP_FINAL_MAX) // 終盤はすぐ戻ってくる
+          : randRange(DECOY_GAP_MIN, DECOY_GAP_MAX);
         onScore?.(score);
-        onPenalty?.({ x: decoyPos.x, y: 0.62, z: decoyPos.z });
+        onPenalty?.({ x: d.pos.x, y: 0.62, z: d.pos.z });
         return false;
       }
     }
 
     return false;
+  }
+
+  function inFinalPhase() {
+    return timeLeft <= FINAL_PHASE_SEC;
   }
 
   // 目標へ向かう水平移動＋ジャンプ（本物・デコイ共通）
@@ -293,37 +316,51 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     character.setHop(hopPhase, walkAmp);
   }
 
-  function updateDecoy(dt) {
-    decoyTimer -= dt;
-
-    if (!decoyActive) {
-      // 出現待ち → 本物から離れた位置に出現
-      if (decoyTimer <= 0) {
-        decoyActive = true;
-        decoyTimer = randRange(DECOY_STAY_MIN, DECOY_STAY_MAX);
-        decoyPos.copy(randomPointAwayFrom(pos));
-        decoyTarget = randomPoint();
-        decoy.root.position.copy(decoyPos);
-        decoy.setVisible(trackVisible);
+  function updateDecoys(dt) {
+    // 終盤ラッシュ突入の瞬間、待機中だった2体目以降を短い時間差で起動
+    const allowed = inFinalPhase() ? DECOY_COUNT_FINAL : 1;
+    if (allowed > lastAllowedDecoys) {
+      for (let i = lastAllowedDecoys; i < allowed; i++) {
+        if (!decoys[i].active) decoys[i].timer = randRange(0.2, 1.4);
       }
-      return;
+      lastAllowedDecoys = allowed;
     }
 
-    // 滞在時間が尽きたら退場
-    if (decoyTimer <= 0) {
-      decoyActive = false;
-      decoy.setVisible(false);
-      decoyTimer = randRange(DECOY_GAP_MIN, DECOY_GAP_MAX);
-      return;
-    }
+    decoys.forEach((d, i) => {
+      if (!d.active) {
+        if (i >= allowed) return; // 稼働枠の外は待機のまま
+        d.timer -= dt;
+        // 出現待ち → 本物から離れた位置に出現
+        if (d.timer <= 0) {
+          d.active = true;
+          d.timer = randRange(DECOY_STAY_MIN, DECOY_STAY_MAX);
+          d.pos.copy(randomPointAwayFrom(pos));
+          d.target.copy(randomPoint());
+          d.char.root.position.copy(d.pos);
+          d.char.setVisible(trackVisible);
+        }
+        return;
+      }
 
-    const targetRef = { value: decoyTarget };
-    const dist = moveToward(decoy, decoyPos, targetRef, speed * DECOY_SPEED_MUL, dt);
-    decoyTarget = targetRef.value;
+      d.timer -= dt;
+      // 滞在時間が尽きたら退場（終盤は短い間隔ですぐ戻る）
+      if (d.timer <= 0) {
+        d.active = false;
+        d.char.setVisible(false);
+        d.timer = inFinalPhase()
+          ? randRange(DECOY_GAP_FINAL_MIN, DECOY_GAP_FINAL_MAX)
+          : randRange(DECOY_GAP_MIN, DECOY_GAP_MAX);
+        return;
+      }
 
-    decoyHopClock += dt * (0.4 + 0.6 * (speed * DECOY_SPEED_MUL / BASE_SPEED));
-    const hopPhase = (decoyHopClock % HOP_PERIOD) / HOP_PERIOD;
-    decoy.setHop(hopPhase, dist < 0.06 ? 0.3 : 1);
+      const targetRef = { value: d.target };
+      const dist = moveToward(d.char, d.pos, targetRef, speed * DECOY_SPEED_MUL, dt);
+      d.target.copy(targetRef.value);
+
+      d.hopClock += dt * (0.4 + 0.6 * (speed * DECOY_SPEED_MUL / BASE_SPEED));
+      const hopPhase = (d.hopClock % HOP_PERIOD) / HOP_PERIOD;
+      d.char.setHop(hopPhase, dist < 0.06 ? 0.3 : 1);
+    });
   }
 
   function update(dt, elapsed) {
@@ -338,7 +375,7 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     }
 
     updateReal(dt);
-    updateDecoy(dt);
+    updateDecoys(dt);
   }
 
   return {
@@ -353,8 +390,9 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
     getDebugInfo: () => ({
       golden: goldTimer > 0,
       goldIn: goldIn,
-      decoyActive,
-      decoyVisible: decoy.root.visible,
+      decoyCount: decoys.filter((d) => d.active).length,
+      decoyVisible: decoys.some((d) => d.char.root.visible),
+      finalPhase: inFinalPhase(),
       speed,
       timeLeft,
     }),
@@ -362,7 +400,7 @@ export function createGame({ durationSec = 45, onScore, onTime, onFinish, onCapt
       trackVisible = v;
       const playing = phase === "playing";
       character.setVisible(v && playing && stunTimer <= 0);
-      decoy.setVisible(v && playing && decoyActive);
+      decoys.forEach((d) => d.char.setVisible(v && playing && d.active));
     },
   };
 }
