@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>ちびキャラ大塚 プレビュー</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html, body { margin: 0; height: 100%; background: #0e1b20; color: #eef8f7; font-family: "Zen Kaku Gothic New", system-ui, sans-serif; overflow: hidden; }
+      #c { display: block; width: 100vw; height: 100vh; }
+      .hud { position: fixed; left: 14px; top: 14px; z-index: 5; }
+      .hud h1 { margin: 0 0 4px; font-size: 16px; }
+      .hud p { margin: 0; font-size: 12px; color: #8fb6b3; }
+      .ctl { position: fixed; left: 0; right: 0; bottom: 16px; display: flex; gap: 8px; justify-content: center; z-index: 5; }
+      .ctl button { font: inherit; font-weight: 700; color: #cdebe9; background: rgba(9,25,29,.86); border: 1px solid rgba(40,216,207,.4); border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+      .ctl button.on { background: rgba(40,216,207,.18); color: #eef8f7; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="hud">
+      <h1>ちびキャラ大塚 プレビュー</h1>
+      <p>AR非搭載の確認用ターンテーブル。ドラッグで回転。</p>
+    </div>
+    <canvas id="c"></canvas>
+    <div class="ctl">
+      <button id="spin" class="on">自動回転</button>
+      <button id="hop" class="on">ジャンプ</button>
+      <button id="front">正面</button>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { createOtsukaCharacter } from "./src/character.js";
+
+      const canvas = document.getElementById("c");
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#0e1b20");
+
+      const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+      camera.position.set(0, 0.7, 2.6);
+      camera.lookAt(0, 0.55, 0);
+
+      scene.add(new THREE.HemisphereLight("#ffffff", "#43525a", 1.35));
+      scene.add(new THREE.AmbientLight("#ffffff", 0.35));
+      const key = new THREE.DirectionalLight("#fff6ec", 1.2);
+      key.position.set(1.5, 2.5, 2);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight("#ffffff", 0.7);
+      fill.position.set(0, 1.2, 3); // カメラ側からの前あかり（顔を明るく）
+      scene.add(fill);
+      const rim = new THREE.DirectionalLight("#9fe6ff", 0.4);
+      rim.position.set(-2, 1, -1.5);
+      scene.add(rim);
+
+      // 床（うっすら）
+      const floor = new THREE.Mesh(
+        new THREE.CircleGeometry(1.2, 48),
+        new THREE.MeshStandardMaterial({ color: "#13262c", roughness: 1 }),
+      );
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      const char = createOtsukaCharacter({ name: "おーつか" });
+      char.setVisible(true);
+      scene.add(char.root);
+
+      let spin = true, hop = true, manualAngle = 0;
+
+      document.getElementById("spin").onclick = (e) => { spin = !spin; e.target.classList.toggle("on", spin); };
+      document.getElementById("hop").onclick = (e) => { hop = !hop; e.target.classList.toggle("on", hop); };
+      document.getElementById("front").onclick = () => { spin = false; manualAngle = 0; document.getElementById("spin").classList.remove("on"); };
+
+      // ドラッグ回転
+      let dragging = false, lastX = 0;
+      canvas.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; spin = false; document.getElementById("spin").classList.remove("on"); });
+      window.addEventListener("pointerup", () => { dragging = false; });
+      window.addEventListener("pointermove", (e) => { if (dragging) { manualAngle += (e.clientX - lastX) * 0.01; lastX = e.clientX; } });
+
+      function resize() {
+        const w = window.innerWidth, h = window.innerHeight;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      const clock = new THREE.Clock();
+      let hopClock = 0;
+      renderer.setAnimationLoop(() => {
+        const dt = Math.min(clock.getDelta(), 0.05);
+        if (spin) manualAngle += dt * 0.7;
+        char.root.rotation.y = manualAngle;
+        if (hop) {
+          hopClock += dt;
+          const phase = (hopClock % 0.42) / 0.42;
+          char.setHop(phase, 1);
+        } else {
+          char.setHop(0, 0);
+        }
+        renderer.render(scene, camera);
+      });
+      window.__ready = true;
+    </script>
+  </body>
+</html>
