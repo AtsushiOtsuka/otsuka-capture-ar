@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>マーカー印刷用ページ | おーつかをつかまえろ！</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+    background: #f1f4f8;
+    color: #1d2a3a;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .sheet {
+    background: #ffffff;
+    max-width: 720px;
+    width: 100%;
+    padding: 36px 32px;
+    border-radius: 16px;
+    box-shadow: 0 6px 24px rgba(29, 42, 58, 0.12);
+    text-align: center;
+  }
+  h1 { font-size: 26px; margin-bottom: 6px; }
+  .lead { font-size: 14px; color: #51606f; margin-bottom: 22px; }
+  .marker-img {
+    width: 100%;
+    max-width: 480px;
+    border: 1px solid #d5dde6;
+    display: block;
+    margin: 0 auto 28px;
+  }
+  .play-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    border-top: 2px dashed #c4cedb;
+    padding-top: 26px;
+  }
+  .qr-img { width: 180px; height: 180px; }
+  .play-info { text-align: left; max-width: 320px; }
+  .play-info h2 { font-size: 18px; margin-bottom: 8px; }
+  .play-info ol { padding-left: 20px; font-size: 14px; line-height: 1.9; }
+  .url {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #3066be;
+    word-break: break-all;
+  }
+  .print-note { margin-top: 24px; font-size: 12px; color: #8593a3; }
+  .print-button {
+    margin-top: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    background: #3066be;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 32px;
+    cursor: pointer;
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { box-shadow: none; border-radius: 0; max-width: none; }
+    .print-button, .print-note { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <h1>おーつかをつかまえろ！ マーカーシート</h1>
+    <p class="lead">このページを印刷するか、別の画面に表示してマーカーとして使ってください。</p>
+
+    <img class="marker-img" src="./assets/marker.png" alt="ARマーカー：おーつかをつかまえろ！" />
+
+    <div class="play-row">
+      <img class="qr-img" src="./assets/qr.png" alt="ゲームページへのQRコード" />
+      <div class="play-info">
+        <h2>あそびかた</h2>
+        <ol>
+          <li>スマホでQRコードを読み取りゲームページを開く</li>
+          <li>「ゲームスタート」を押してカメラを許可</li>
+          <li>カメラを上のマーカーに向ける</li>
+          <li>飛び出してくる「おーつか」をタップして捕まえよう！</li>
+        </ol>
+        <p class="url">https://atsushiotsuka.github.io/otsuka-capture-ar/</p>
+      </div>
+    </div>
+
+    <p class="print-note">マーカーは10cm角以上の大きさで、明るい場所で使うと認識しやすくなります。</p>
+    <button class="print-button" type="button" onclick="window.print()">このページを印刷する</button>
+  </div>
+</body>
+</html>

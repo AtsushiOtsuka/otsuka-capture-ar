@@ -1,5 +1,7 @@
 # おーつかをつかまえろ！ WebAR捕獲ゲーム
 
+**公開URL: <https://atsushiotsuka.github.io/otsuka-capture-ar/>**（マーカーは [marker.html](https://atsushiotsuka.github.io/otsuka-capture-ar/marker.html) を印刷 or 別画面に表示）
+
 マーカー型 WebAR のミニゲームです。スマートフォンのブラウザでページを開き、カメラをトリガー画像（マーカー）に向けると、白衣にメガネの「おーつか」がマーカーの上を跳ねながら逃げ回ります。タップして制限時間内にできるだけたくさん捕まえてください。
 
 技術構成は [il13-lebrikizumab-webar](../il13-lebrikizumab-webar) と同じ MindAR + three.js（CDN・ビルド不要・静的ファイルのみ）です。
@@ -20,6 +22,7 @@
 .
 ├── index.html        ゲーム本体（AR）
 ├── preview.html      キャラ確認用ターンテーブル（カメラ不要）
+├── marker.html       マーカー印刷用ページ（マーカー＋QR＋遊び方）
 ├── src/
 │   ├── main.js       エントリ（MindAR統合＋デバッグモード）
 │   ├── game.js       ゲームロジック（移動・捕獲判定・タイマー）
@@ -28,8 +31,11 @@
 │   ├── ui.js         画面UI制御
 │   └── styles.css
 └── assets/
-    ├── targets.mind            既定マーカー（MindAR公式card例）
-    └── slide-marker-sample.png 上記の印刷・表示用画像
+    ├── targets.mind       マーカーデータ（marker.png をコンパイルしたもの）
+    ├── marker.png         オリジナルマーカー画像（印刷・表示用）
+    ├── marker-design.html マーカー画像の元デザイン（再生成用）
+    ├── qr.png             公開URLのQRコード
+    └── _char_front.png    キャラ正面画像（マーカーデザインで使用）
 ```
 
 ## URLパラメータ
@@ -61,12 +67,13 @@ python3 -m http.server 4185
 
 ## デプロイ
 
-静的ホスティング（Netlify Drop、GitHub Pages、Vercel など）にディレクトリごと配置するだけです。バックエンド、DB、ログイン、Cookie は使っていません。
+GitHub Pages で公開しています（master ブランチ直下を配信）。push すれば自動で反映されます。静的ファイルのみで、バックエンド、DB、ログイン、Cookie は使っていません。
 
 ## マーカーの差し替え
 
 1. トリガーにしたい画像（特徴量が多く高コントラストなもの）を PNG/JPG で用意
+   - 現行マーカーは `assets/marker-design.html` をブラウザで開き 1000×1000 でスクリーンショットしたもの
 2. MindAR 画像コンパイラ <https://hiukim.github.io/mind-ar-js-doc/tools/compile> で `targets.mind` を生成
 3. `assets/targets.mind` を置き換え（または `?target=` で指定）
 
-既定では MindAR 公式 card 例（`assets/slide-marker-sample.png` と同じ絵柄）を使っています。この画像を別画面や紙に表示してカメラを向けると動作確認できます。
+マーカー画像は `assets/marker.png`（`marker.html` で印刷・表示可能）です。
