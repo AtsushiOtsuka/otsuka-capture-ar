@@ -15,9 +15,21 @@ import { createUIController } from "./ui.js";
 //   ?target=...  マーカー(.mind)の差し替え
 //   ?time=30     制限時間（秒）
 //   ?debug=1     デバッグモード
+//   ?session=...  出席登録用の授業回ID
+//   ?form=...     出席登録フォームURL（一時上書き用）
 // ============================================================
 
 const DEFAULT_IMAGE_TARGET = "./assets/targets.mind";
+const DEFAULT_ATTENDANCE_FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSdOYNy1yo9OU1kcP02e2ysI-HH1jldxUFcbKl4xbmoSU_N1vw/viewform";
+const DEFAULT_FORM_ENTRY_IDS = {
+  name: "entry.1552158824",
+  studentId: "entry.1718740779",
+  recognitionId: "entry.133270326",
+  score: "entry.228502941",
+  sessionId: "entry.2078430568",
+  finishedAt: "entry.1118050961",
+};
 
 // ゴールデンおーつか捕獲時のボイス「ウルトラソウル！」
 // タップ（ユーザー操作）起点で再生されるためモバイルの自動再生制限にかからない。
@@ -28,6 +40,16 @@ const params = new URLSearchParams(window.location.search);
 const imageTargetSrc = params.get("target") || DEFAULT_IMAGE_TARGET;
 const durationSec = Math.max(10, parseInt(params.get("time"), 10) || 30);
 const isDebug = params.get("debug") === "1";
+const sessionId = params.get("session") || `OTSUKA-${formatDateId(new Date())}`;
+const attendanceFormUrl = params.get("form") || DEFAULT_ATTENDANCE_FORM_URL;
+const formEntryIds = {
+  name: params.get("entryName") || DEFAULT_FORM_ENTRY_IDS.name,
+  studentId: params.get("entryStudentId") || DEFAULT_FORM_ENTRY_IDS.studentId,
+  recognitionId: params.get("entryRecognitionId") || DEFAULT_FORM_ENTRY_IDS.recognitionId,
+  score: params.get("entryScore") || DEFAULT_FORM_ENTRY_IDS.score,
+  sessionId: params.get("entrySessionId") || DEFAULT_FORM_ENTRY_IDS.sessionId,
+  finishedAt: params.get("entryFinishedAt") || DEFAULT_FORM_ENTRY_IDS.finishedAt,
+};
 
 let mindarThree = null;
 let renderer = null;
@@ -46,7 +68,6 @@ let debugCamera = null;
 const ui = createUIController({
   onStart: () => (isDebug ? startDebug() : startAR()),
   onStop: stopAll,
-  onRetry: () => game?.start(),
 });
 
 ui.setScore(0);
@@ -58,7 +79,7 @@ function buildGame(camera, container) {
     durationSec,
     onScore: (s) => ui.setScore(s),
     onTime: (t) => ui.setTime(t),
-    onFinish: (score) => ui.showResult(score),
+    onFinish: (score) => ui.showResult(score, createAttendancePayload(score)),
     onCapture: (pos) => {
       if (pos.gold) {
         confetti.burstGold(pos);
@@ -288,6 +309,76 @@ function getReadableError(error) {
   if (!error) return "";
   if (typeof error === "string") return error;
   return error.message || error.name || "";
+}
+
+function createAttendancePayload(score) {
+  const finishedAt = new Date();
+  const recognitionId = createRecognitionId({ score, finishedAt });
+  return {
+    recognitionId,
+    url: buildAttendanceUrl({ score, recognitionId, finishedAt }),
+  };
+}
+
+function createRecognitionId({ score, finishedAt }) {
+  return [
+    sessionId,
+    formatTimeId(finishedAt),
+    `S${score}`,
+    randomCode(4),
+  ].join("-");
+}
+
+function buildAttendanceUrl({ score, recognitionId, finishedAt }) {
+  if (!attendanceFormUrl) return "";
+
+  let url;
+  try {
+    url = new URL(attendanceFormUrl, window.location.href);
+  } catch {
+    return "";
+  }
+
+  const fields = {
+    recognitionId,
+    score: String(score),
+    sessionId,
+    finishedAt: finishedAt.toISOString(),
+  };
+
+  for (const [field, value] of Object.entries(fields)) {
+    const entryId = formEntryIds[field];
+    if (entryId) url.searchParams.set(entryId, value);
+  }
+
+  // entry ID未設定でも、動作確認や別フォーム実装で値を拾えるように通常パラメータも付ける。
+  url.searchParams.set("recognition_id", recognitionId);
+  url.searchParams.set("score", String(score));
+  url.searchParams.set("session_id", sessionId);
+  url.searchParams.set("finished_at", finishedAt.toISOString());
+
+  return url.toString();
+}
+
+function formatDateId(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+
+function formatTimeId(date) {
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  const s = String(date.getSeconds()).padStart(2, "0");
+  return `${h}${m}${s}`;
+}
+
+function randomCode(length) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
 window.addEventListener("pagehide", () => {

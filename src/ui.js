@@ -34,7 +34,7 @@ function rankComment(score) {
   return "おーつかは素早い…リベンジしよう！";
 }
 
-export function createUIController({ onStart, onStop, onRetry }) {
+export function createUIController({ onStart, onStop }) {
   const elements = {
     app: document.querySelector("#app"),
     startScreen: document.querySelector("#start-screen"),
@@ -55,19 +55,17 @@ export function createUIController({ onStart, onStop, onRetry }) {
     result: document.querySelector("#result"),
     resultScore: document.querySelector("#result-score"),
     resultComment: document.querySelector("#result-comment"),
-    retryButton: document.querySelector("#retry-button"),
-    endButton: document.querySelector("#end-button"),
+    recognitionId: document.querySelector("#recognition-id"),
+    attendanceNote: document.querySelector("#attendance-note"),
+    attendanceLink: document.querySelector("#attendance-link"),
   };
 
   elements.startButton.addEventListener("click", () => onStart());
   elements.stopButton.addEventListener("click", () => onStop());
-  elements.retryButton.addEventListener("click", () => {
-    hideResult();
-    onRetry();
-  });
-  elements.endButton.addEventListener("click", () => {
-    hideResult();
-    onStop();
+  elements.attendanceLink.addEventListener("click", (event) => {
+    if (elements.attendanceLink.getAttribute("aria-disabled") === "true") {
+      event.preventDefault();
+    }
   });
 
   function setLoading(isLoading) {
@@ -158,9 +156,23 @@ export function createUIController({ onStart, onStop, onRetry }) {
     popFlash(elements.missFlash, 500);
   }
 
-  function showResult(score) {
+  function showResult(score, attendance = {}) {
     elements.resultScore.textContent = String(score);
     elements.resultComment.textContent = rankComment(score);
+    elements.recognitionId.textContent = attendance.recognitionId || "----";
+
+    if (attendance.url) {
+      elements.attendanceLink.href = attendance.url;
+      elements.attendanceLink.removeAttribute("aria-disabled");
+      elements.attendanceLink.classList.remove("is-disabled");
+      elements.attendanceNote.textContent = "この番号は出席フォームに自動入力されます。";
+    } else {
+      elements.attendanceLink.href = "#";
+      elements.attendanceLink.setAttribute("aria-disabled", "true");
+      elements.attendanceLink.classList.add("is-disabled");
+      elements.attendanceNote.textContent = "出席フォームURLがまだ設定されていません。";
+    }
+
     elements.result.hidden = false;
   }
 
