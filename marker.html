@@ -81,7 +81,7 @@
     <img class="marker-img" src="./assets/marker-wide.png" alt="ARマーカー：おーつかをつかまえろ！（16:9スライド用）" />
 
     <div class="play-row">
-      <img class="qr-img" src="./assets/qr.png" alt="ゲームページへのQRコード" />
+      <img id="qr-img" class="qr-img" src="./assets/qr.png" alt="ゲームページへのQRコード" />
       <div class="play-info">
         <h2>あそびかた</h2>
         <ol>
@@ -90,12 +90,27 @@
           <li>カメラを上のマーカーに向ける</li>
           <li>飛び出してくる「おーつか」をタップして捕まえよう！</li>
         </ol>
-        <p class="url">https://atsushiotsuka.github.io/otsuka-capture-ar/</p>
+        <p id="game-url" class="url">https://atsushiotsuka.github.io/otsuka-capture-ar/</p>
       </div>
     </div>
 
     <p class="print-note">マーカーは横15cm以上の大きさで、明るい場所で使うと認識しやすくなります。スライドに貼る場合は全面表示がおすすめです。</p>
     <button class="print-button" type="button" onclick="window.print()">このページを印刷する</button>
   </div>
+
+  <script>
+    // ?class=キー で授業ごとのQR・URLに切り替える（src/main.js の CLASS_PRESETS と対応）。
+    // 新しい授業を追加したら、QR画像を assets/qr-<キー>.png として生成しここにも登録する。
+    const CLASS_QR = {
+      rinsho3: { qr: "./assets/qr-rinsho3.png", label: "3年生臨床各論" },
+    };
+    const classKey = new URLSearchParams(window.location.search).get("class");
+    if (CLASS_QR[classKey]) {
+      document.querySelector("#qr-img").src = CLASS_QR[classKey].qr;
+      document.querySelector("#game-url").textContent =
+        `https://atsushiotsuka.github.io/otsuka-capture-ar/?class=${classKey}`;
+      document.title = `マーカー印刷用ページ（${CLASS_QR[classKey].label}） | おーつかをつかまえろ！`;
+    }
+  </script>
 </body>
 </html>

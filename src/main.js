@@ -15,6 +15,7 @@ import { createUIController } from "./ui.js";
 //   ?target=...  マーカー(.mind)の差し替え
 //   ?time=30     制限時間（秒）
 //   ?debug=1     デバッグモード
+//   ?class=...    授業プリセット（CLASS_PRESETS のキー。出席フォームと授業回IDを切り替え）
 //   ?session=...  出席登録用の授業回ID
 //   ?form=...     出席登録フォームURL（一時上書き用）
 // ============================================================
@@ -22,6 +23,18 @@ import { createUIController } from "./ui.js";
 const DEFAULT_IMAGE_TARGET = "./assets/targets.mind";
 const DEFAULT_ATTENDANCE_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSdOYNy1yo9OU1kcP02e2ysI-HH1jldxUFcbKl4xbmoSU_N1vw/viewform";
+
+// 授業プリセット。別の授業で使うときは、既存の出席フォームをGoogleドライブ上で
+// コピー（entry IDは引き継がれる）→ 回答先スプレッドシートをリンク → 公開し、
+// ここに1エントリ追加して ?class=キー でアクセスする。
+const CLASS_PRESETS = {
+  // 3年生臨床各論（2026年度）
+  rinsho3: {
+    label: "3年生臨床各論",
+    form: "https://docs.google.com/forms/d/e/1FAIpQLSeoSeUqOZRhBzXuJ0DiA73bJkdAx3mU393DHwfl4Ex8SEx4QA/viewform",
+    sessionPrefix: "RINSHO3",
+  },
+};
 const DEFAULT_FORM_ENTRY_IDS = {
   name: "entry.1552158824",
   studentId: "entry.1718740779",
@@ -40,8 +53,11 @@ const params = new URLSearchParams(window.location.search);
 const imageTargetSrc = params.get("target") || DEFAULT_IMAGE_TARGET;
 const durationSec = Math.max(10, parseInt(params.get("time"), 10) || 30);
 const isDebug = params.get("debug") === "1";
-const sessionId = params.get("session") || `OTSUKA-${formatDateId(new Date())}`;
-const attendanceFormUrl = params.get("form") || DEFAULT_ATTENDANCE_FORM_URL;
+const classPreset = CLASS_PRESETS[params.get("class")] || null;
+const sessionPrefix = classPreset ? classPreset.sessionPrefix : "OTSUKA";
+const sessionId = params.get("session") || `${sessionPrefix}-${formatDateId(new Date())}`;
+const attendanceFormUrl =
+  params.get("form") || (classPreset ? classPreset.form : DEFAULT_ATTENDANCE_FORM_URL);
 const formEntryIds = {
   name: params.get("entryName") || DEFAULT_FORM_ENTRY_IDS.name,
   studentId: params.get("entryStudentId") || DEFAULT_FORM_ENTRY_IDS.studentId,

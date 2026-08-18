@@ -61,6 +61,31 @@
 | `?debug=1` | カメラ・マーカーなしでゲームを直接プレイ（開発用） | `index.html?debug=1` |
 | `?time=45` | 制限時間（秒、最小10。既定30） | `index.html?time=45` |
 | `?target=...` | マーカー(.mind)の差し替え | `index.html?target=./assets/my.mind` |
+| `?class=...` | 授業プリセット（出席フォームと授業回IDを切り替え） | `index.html?class=rinsho3` |
+| `?form=...` | 出席フォームURLの一時上書き | — |
+| `?session=...` | 授業回IDの上書き | `index.html?session=RINSHO3-20261001` |
+
+## 出席登録（授業プリセット）
+
+ゲーム終了後の「出席登録へ」ボタンは、認識番号・スコア・授業回ID・終了時刻を
+事前入力したGoogleフォームを開く。学生は氏名と学生番号だけ入力して送信し、
+回答はフォームにリンクされたスプレッドシートに記録される。
+
+| class | 授業 | フォーム / 回答先 |
+|---|---|---|
+| （なし） | 医学概論皮膚科（従来） | おーつかARゲーム 出席登録 |
+| `rinsho3` | 3年生臨床各論 | 【3年生臨床各論】おーつかARゲーム 出席登録（回答先：同名スプレッドシート） |
+
+学生への案内URL: `https://atsushiotsuka.github.io/otsuka-capture-ar/?class=rinsho3`
+（マーカーページも `marker.html?class=rinsho3` で専用QRつきになる）
+
+### 新しい授業向けの追加手順
+
+1. Googleドライブで既存の出席フォームをコピー（**entry IDはコピーで引き継がれる**）
+2. フォームのタイトル・説明を授業名に変更し、「回答」タブ →「スプレッドシートにリンク」で新規シートを作成
+3. フォームを「公開」し、回答者用URL（`/forms/d/e/...`）を取得
+4. `src/main.js` の `CLASS_PRESETS` に1エントリ追加（form URLと`sessionPrefix`）
+5. QRコードを `assets/qr-<キー>.png` として生成し、`marker.html` の `CLASS_QR` にも登録
 
 ## チューニング値（src/game.js 冒頭）
 
